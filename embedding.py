@@ -1,8 +1,15 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-
+import chromadb
 load_dotenv()
+chroma_client= chromadb.PersistentClient(path="./chroma_db")
+
+collection = chroma_client.get_or_create_collection(name="vectoreStore")  # give it a name
+
+print("Collection created:", collection.name)
+
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 response = client.embeddings.create(
@@ -15,11 +22,10 @@ response = client.embeddings.create(
 "I hate playing cricket"]  # fill this
 )
 
-# print(len(response.data[0].embedding))
-import numpy as np
 
-def cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+# print(len(response.data[0].embedding))
 
 embeddings = [item.embedding for item in response.data]
 
@@ -32,7 +38,18 @@ sentences = [
     "I hate playing cricket"
 ]
 
-# Compare first sentence with all others
-for i in range(1, 6):
-    similarity = cosine_similarity(embeddings[0], embeddings[i])
-    print(f"Similarity between sentence 1 and sentence {i+1}: {similarity:.4f}")
+
+collection.add(
+    documents=sentences,    # the list of sentences
+    embeddings=embeddings,  # the list of vectors
+    ids=["id1", "id2", "id3", "id4", "id5", "id6"]
+)
+response1 = client.embeddings.create(
+    model="text-embedding-3-small",  # fill this
+    input=["I enjoy sports"]
+)
+results = collection.query(
+    query_embeddings=[item.embedding for item in response1.data],  # embedding of your search query
+    n_results=2           # return top 2 most similar
+)
+print(results)
